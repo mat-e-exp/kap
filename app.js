@@ -957,6 +957,18 @@ class SentimentAnalyser {
         this.baselineMetrics = null;
         this.blinkCount = 0;
 
+        // Reset tab state and document context
+        this.activeTab = 'subject';
+        this.documentContext = null;
+
+        // Reset tab UI to subject
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === 'subject');
+        });
+        document.getElementById('subject-tab').classList.add('active');
+        document.getElementById('document-tab').classList.remove('active');
+        document.getElementById('document-analysis').classList.add('hidden');
+
         this.cameraStatus.classList.remove('granted', 'denied');
         this.micStatus.classList.remove('granted', 'denied');
         this.startBtn.disabled = false;
