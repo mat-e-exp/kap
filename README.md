@@ -1,5 +1,7 @@
 # KAP - Knowledge Assessment Platform
 
+**⚠️ BETA** - Sentiment and facial analysis features are experimental and may not be accurate.
+
 AI-powered knowledge assessment tool that generates questions for any subject, evaluates spoken answers, and tracks confidence through facial and behavioral analysis.
 
 ## Use Cases
@@ -20,6 +22,27 @@ AI-powered knowledge assessment tool that generates questions for any subject, e
 - **Voice Response** - Speak your answers using Web Speech API
 - **Real-time Analysis** - Confidence and stress metrics from facial expressions and behavior
 - **Detailed Results** - Per-question breakdown with scores, feedback, and sentiment accuracy
+
+## Sentiment Analysis
+
+**Note:** Sentiment analysis is experimental. Results may not accurately reflect your actual confidence or stress levels.
+
+During each question, the app analyzes your facial expressions and behavior to generate sentiment metrics:
+
+**Metrics tracked:**
+- **Confidence** - Based on emotions (happy/neutral increase, fearful/sad decrease) and behavior (steady gaze, minimal head movement)
+- **Stress** - Based on emotions (fearful/surprised/angry) and behavior (blink rate, gaze instability, lip tension)
+- **Dominant Emotion** - Most prominent expression (neutral, happy, sad, angry, fearful, surprised)
+- **Gaze Stability** - How centered your eyes remain
+- **Blink Rate** - Number of blinks during your answer
+- **Time** - Duration to answer each question
+
+**Sentiment Accuracy:**
+Results show whether your sentiment predicted answer correctness:
+- **Match** - Seemed confident and was correct, or seemed uncertain and was incorrect
+- **Mismatch** - Seemed confident but wrong, or seemed uncertain but correct
+
+This helps identify when you may be overconfident in wrong answers or underselling correct knowledge.
 
 ## Requirements
 
