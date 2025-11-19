@@ -1,0 +1,26 @@
+{
+  "name": "kap",
+  "version": "1.0.0",
+  "description": "Knowledge Assessment Platform - AI-powered interview practice",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "static": "npx http-server -p 3075 -c-1 -S -C cert.pem -K key.pem"
+  },
+  "keywords": [
+    "interview",
+    "assessment",
+    "ai",
+    "knowledge-testing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  }
+}
