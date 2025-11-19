@@ -762,6 +762,9 @@ class SentimentAnalyser {
         };
         const metricsToUse = avgMetrics || defaultMetrics;
 
+        // Calculate speech metrics
+        const speechMetrics = this.calculateSpeechMetrics(userResponse, timeElapsed);
+
         this.results.push({
             question: this.questions[this.currentQuestion],
             response: userResponse,
@@ -773,7 +776,8 @@ class SentimentAnalyser {
                 dominantEmotion: avgMetrics?.dominantEmotion || 'neutral',
                 blinkRate: this.blinkCount,
                 gazeStability: avgMetrics ? Math.round((1 - Math.abs(avgMetrics.gazeDirection - 0.5) * 2) * 100) : 50
-            }
+            },
+            speech: speechMetrics
         });
 
         this.stopListening();
@@ -886,17 +890,6 @@ class SentimentAnalyser {
             const correctClass = r.correct ? 'correct' : 'incorrect';
             const s = r.sentiment;
 
-            // Calculate sentiment accuracy - how well sentiment predicted correctness
-            const highConfidence = s.confidence >= 50;  // Lowered from 60
-            const lowStress = s.stress <= 50;  // Raised from 40
-            const sentimentPredictedCorrect = highConfidence && lowStress;
-            const sentimentAccurate = sentimentPredictedCorrect === r.correct;
-            const accuracyClass = sentimentAccurate ? 'high' : 'low';
-            const accuracyLabel = sentimentAccurate ? 'Match' : 'Mismatch';
-            const accuracyExplanation = sentimentAccurate
-                ? (r.correct ? 'Confident & correct' : 'Uncertain & incorrect')
-                : (r.correct ? 'Seemed uncertain but correct' : 'Seemed confident but wrong');
-
             return `
                 <div class="breakdown-item">
                     <div class="breakdown-main">
@@ -910,8 +903,8 @@ class SentimentAnalyser {
                             ${r.feedback}
                         </span>
                     </div>
-                    <div class="breakdown-sentiment">
-                        <div class="sentiment-title">Sentiment</div>
+                    <div class="breakdown-observations">
+                        <div class="sentiment-title">Observations <span class="beta-tag">BETA</span></div>
                         <div class="sentiment-item">
                             <span class="sentiment-label">Expression</span>
                             <span class="sentiment-value">${this.capitalise(s.dominantEmotion)}</span>
@@ -929,18 +922,24 @@ class SentimentAnalyser {
                             <span class="sentiment-value">${s.gazeStability}%</span>
                         </div>
                         <div class="sentiment-item">
-                            <span class="sentiment-label">Blinks</span>
-                            <span class="sentiment-value">${s.blinkRate}</span>
-                        </div>
-                        <div class="sentiment-item">
                             <span class="sentiment-label">Time</span>
                             <span class="sentiment-value">${this.formatTime(r.timeMs)}</span>
                         </div>
                     </div>
-                    <div class="breakdown-accuracy">
-                        <div class="sentiment-title">Accuracy</div>
-                        <div class="accuracy-result ${accuracyClass}">${accuracyLabel}</div>
-                        <div class="accuracy-explanation">${accuracyExplanation}</div>
+                    <div class="breakdown-speech">
+                        <div class="sentiment-title">Speech</div>
+                        <div class="sentiment-item">
+                            <span class="sentiment-label">Words</span>
+                            <span class="sentiment-value">${r.speech.wordCount}</span>
+                        </div>
+                        <div class="sentiment-item">
+                            <span class="sentiment-label">WPM</span>
+                            <span class="sentiment-value">${r.speech.wpm}</span>
+                        </div>
+                        <div class="sentiment-item">
+                            <span class="sentiment-label">Fillers</span>
+                            <span class="sentiment-value">${r.speech.fillerCount}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -996,6 +995,24 @@ class SentimentAnalyser {
         const mins = Math.floor(secs / 60);
         const remainingSecs = secs % 60;
         return `${mins}:${remainingSecs.toString().padStart(2, '0')}`;
+    }
+
+    calculateSpeechMetrics(transcript, timeMs) {
+        const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
+        const wordCount = words.length;
+        const seconds = timeMs / 1000;
+        const wpm = seconds > 0 ? Math.round((wordCount / seconds) * 60) : 0;
+
+        // Count filler words
+        const fillerPattern = /\b(um|uh|er|ah|like|you know|basically|actually|so|well)\b/gi;
+        const fillers = transcript.match(fillerPattern) || [];
+        const fillerCount = fillers.length;
+
+        return {
+            wordCount,
+            wpm,
+            fillerCount
+        };
     }
 }
 

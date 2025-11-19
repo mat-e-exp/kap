@@ -23,26 +23,25 @@ AI-powered knowledge assessment tool that generates questions for any subject, e
 - **Real-time Analysis** - Confidence and stress metrics from facial expressions and behavior
 - **Detailed Results** - Per-question breakdown with scores, feedback, and sentiment accuracy
 
-## Sentiment Analysis
+## Observations
 
-**Note:** Sentiment analysis is experimental. Results may not accurately reflect your actual confidence or stress levels.
+**Note:** Observations are experimental. These are raw metrics for your own interpretation, not predictions of confidence or performance.
 
-During each question, the app analyzes your facial expressions and behavior to generate sentiment metrics:
+During each question, the app records visual and speech metrics:
 
-**Metrics tracked:**
-- **Confidence** - Based on emotions (happy/neutral increase, fearful/sad decrease) and behavior (steady gaze, minimal head movement)
-- **Stress** - Based on emotions (fearful/surprised/angry) and behavior (blink rate, gaze instability, lip tension)
-- **Dominant Emotion** - Most prominent expression (neutral, happy, sad, angry, fearful, surprised)
+**Visual Observations:**
+- **Expression** - Dominant facial expression detected (neutral, happy, sad, angry, fearful, surprised)
+- **Confidence %** - Calculated from facial expressions and behavior
+- **Stress %** - Calculated from facial expressions and behavior
 - **Gaze Stability** - How centered your eyes remain
-- **Blink Rate** - Number of blinks during your answer
 - **Time** - Duration to answer each question
 
-**Sentiment Accuracy:**
-Results show whether your sentiment predicted answer correctness:
-- **Match** - Seemed confident and was correct, or seemed uncertain and was incorrect
-- **Mismatch** - Seemed confident but wrong, or seemed uncertain but correct
+**Speech Observations:**
+- **Word Count** - Total words in your answer
+- **WPM** - Words per minute (speaking pace)
+- **Fillers** - Count of filler words detected (um, uh, er, like, etc.)
 
-This helps identify when you may be overconfident in wrong answers or underselling correct knowledge.
+These metrics let you spot your own patterns over multiple sessions. The app does not interpret what they mean - you draw your own conclusions.
 
 ## Requirements
 
