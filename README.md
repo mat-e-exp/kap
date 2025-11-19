@@ -2,6 +2,16 @@
 
 AI-powered knowledge assessment tool that generates questions for any subject, evaluates spoken answers, and tracks confidence through facial and behavioral analysis.
 
+## Use Cases
+
+- **Job Interview Prep** - Paste a job description and practice answering questions about the required skills
+- **Technical Interview Training** - Test yourself on React, Python, SQL, or any technology at your experience level
+- **Exam Revision** - Paste study notes and generate questions to test your understanding
+- **CV Gap Analysis** - Upload your CV and identify areas where you need to strengthen your knowledge
+- **Professional Certification** - Practice for AWS, PMP, medical boards, or legal bar exams
+- **Language Learning** - Test vocabulary, grammar, or cultural knowledge at different proficiency levels
+- **Onboarding Assessment** - Create quick knowledge checks for new team members
+
 ## Features
 
 - **Flexible Input** - Enter any subject or paste a document (job description, CV, study material)
