@@ -927,7 +927,7 @@ class SentimentAnalyser {
                         </div>
                     </div>
                     <div class="breakdown-speech">
-                        <div class="sentiment-title">Speech</div>
+                        <div class="sentiment-title">Speech <span class="beta-tag">BETA</span></div>
                         <div class="sentiment-item">
                             <span class="sentiment-label">Words</span>
                             <span class="sentiment-value">${r.speech.wordCount}</span>
