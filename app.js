@@ -940,6 +940,7 @@ class SentimentAnalyser {
                             <span class="sentiment-label">Fillers</span>
                             <span class="sentiment-value">${r.speech.fillerCount}</span>
                         </div>
+                        <div class="speech-summary">${r.speech.summary}</div>
                     </div>
                 </div>
             `;
@@ -1008,10 +1009,17 @@ class SentimentAnalyser {
         const fillers = transcript.match(fillerPattern) || [];
         const fillerCount = fillers.length;
 
+        // Generate summary
+        const lengthDesc = wordCount < 10 ? 'Brief' : wordCount < 30 ? 'Moderate' : 'Detailed';
+        const paceDesc = wpm < 100 ? 'slow pace' : wpm < 150 ? 'steady pace' : 'fast pace';
+        const fillerDesc = fillerCount === 0 ? 'no fillers' : fillerCount <= 2 ? 'few fillers' : 'frequent fillers';
+        const summary = `${lengthDesc}, ${paceDesc}, ${fillerDesc}`;
+
         return {
             wordCount,
             wpm,
-            fillerCount
+            fillerCount,
+            summary
         };
     }
 }
