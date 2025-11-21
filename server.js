@@ -94,14 +94,15 @@ app.post('/api/suggest-topics', async (req, res) => {
             messages: [
                 {
                     role: 'user',
-                    content: `Given the subject "${subject}", suggest 4-5 specific topics within this field that would be good for interview questions or knowledge testing.
+                    content: `Given the subject "${subject}", suggest 4-5 specific topics within this field that would be good for knowledge assessment.
 
 Return ONLY a JSON array of topic strings, no other text:
 ["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topic 5"]
 
 Make topics specific and testable. For example:
-- "JavaScript" → ["Closures & Scope", "Async/Await & Promises", "Prototypes & Inheritance", "Event Loop", "ES6+ Features"]
-- "Cardiology" → ["Heart Failure Management", "Arrhythmia Recognition", "Coronary Artery Disease", "Valvular Heart Disease", "ECG Interpretation"]`
+- "World War II" → ["European Theatre", "Pacific Theatre", "Key Battles", "Political Leaders", "Home Front"]
+- "Cricket" → ["Test Match Rules", "Famous Players", "Historic Series", "Batting Techniques", "Tournament History"]
+- "Chemistry" → ["Periodic Table", "Chemical Bonds", "Organic Chemistry", "Reactions", "Laboratory Techniques"]`
                 }
             ]
         });
@@ -130,37 +131,131 @@ Make topics specific and testable. For example:
 // Generate questions endpoint
 app.post('/api/generate-questions', async (req, res) => {
     try {
-        const { subject, difficulty, count, documentContext } = req.body;
+        const { subject, difficulty, count, documentContext, questionStyle } = req.body;
         const questionCount = count || 5;
 
         const difficultyDescriptions = {
             '1': 'beginner level - basic terminology and simple concepts',
-            '2': 'junior developer level - fundamental concepts and common practices',
-            '3': 'mid-level developer - practical application and deeper understanding',
-            '4': 'senior developer level - advanced concepts and architectural decisions',
-            '5': 'expert level - complex scenarios, trade-offs, and edge cases'
+            '2': 'intermediate level - fundamental concepts and common knowledge',
+            '3': 'competent level - practical understanding and deeper knowledge',
+            '4': 'advanced level - complex concepts and nuanced understanding',
+            '5': 'expert level - sophisticated scenarios, edge cases, and deep expertise'
+        };
+
+        const questionStyleConfig = {
+            'mixed': {
+                description: 'Generate a mix of question types: some technical knowledge, some behavioural (past experiences), and some situational (hypothetical scenarios).',
+                examples: `- "What experience do you have with [specific skill from document]?"
+- "Tell me about a time you had to learn a new technology quickly."
+- "How would you handle a situation where project requirements changed mid-way?"`,
+                answerLength: 'Answers may range from one sentence for factual questions to 2-3 sentences for experiential questions.'
+            },
+            'technical': {
+                description: 'Focus ONLY on technical knowledge questions - testing specific skills, tools, methodologies, and domain expertise mentioned in the document.',
+                examples: `- "What is the purpose of [specific technology/tool]?"
+- "How does [concept] work in practice?"
+- "What are the key differences between [technology A] and [technology B]?"`,
+                answerLength: 'Each question must be answerable in ONE SENTENCE (15-30 words max answer).'
+            },
+            'behavioural': {
+                description: 'Focus ONLY on behavioural questions using STAR method - asking about PAST experiences. All questions MUST start with phrases like "Tell me about a time when...", "Describe a situation where...", "Give an example of when you..."',
+                examples: `- "Tell me about a time when you had to meet a tight deadline."
+- "Describe a situation where you had to resolve a conflict with a colleague."
+- "Give an example of when you had to adapt to a significant change at work."`,
+                answerLength: 'These questions require candidates to describe past experiences, so answers will be 2-4 sentences.'
+            },
+            'situational': {
+                description: 'Focus ONLY on situational judgement questions - presenting HYPOTHETICAL scenarios. All questions MUST start with phrases like "What would you do if...", "How would you handle...", "Imagine you are faced with..."',
+                examples: `- "What would you do if a team member was consistently underperforming?"
+- "How would you handle a situation where you disagreed with your manager's decision?"
+- "Imagine you discover a critical bug the day before launch - what steps would you take?"`,
+                answerLength: 'These questions ask about hypothetical responses, so answers will be 2-3 sentences explaining the approach.'
+            },
+            'management': {
+                description: 'Focus ONLY on management and leadership questions - about team leadership, delegation, motivation, conflict resolution, strategic thinking, and people management.',
+                examples: `- "How do you approach delegating tasks to team members?"
+- "What is your strategy for motivating an underperforming team?"
+- "How do you balance competing priorities when managing multiple projects?"`,
+                answerLength: 'These questions require explanation of management approach, so answers will be 2-3 sentences.'
+            },
+            'competency': {
+                description: 'Focus ONLY on competency-based questions - directly assessing specific skills and abilities required for the role as mentioned in the document.',
+                examples: `- "How have you demonstrated [specific competency] in your previous roles?"
+- "What approach do you take to [specific skill area]?"
+- "Describe how you would apply [competency] in this role."`,
+                answerLength: 'These questions assess specific competencies, so answers will be 1-3 sentences.'
+            }
         };
 
         const subjectName = subject;
         const difficultyDesc = difficultyDescriptions[difficulty] || difficultyDescriptions['3'];
 
-        // Build prompt with optional document context
-        let promptContent = `Generate ${questionCount} questions for: ${subjectName}
+        // Build prompt - structure depends on whether we have a styled CV/JD or not
+        let promptContent;
 
-Difficulty: ${difficultyDesc}`;
+        if (documentContext && questionStyle && questionStyleConfig[questionStyle]) {
+            // CV/Job Description with style selected - style is PRIMARY
+            const styleConfig = questionStyleConfig[questionStyle];
+            const styleNames = {
+                'mixed': 'mixed-style interview',
+                'technical': 'technical knowledge',
+                'behavioural': 'behavioural (STAR method)',
+                'situational': 'situational judgement',
+                'management': 'management and leadership',
+                'competency': 'competency-based'
+            };
 
-        if (documentContext) {
-            promptContent += `
+            promptContent = `Generate ${questionCount} ${styleNames[questionStyle]} questions for interviewing a candidate.
+
+=== QUESTION STYLE (PRIMARY REQUIREMENT - MUST FOLLOW) ===
+${styleConfig.description}
+
+${styleConfig.answerLength}
+
+Examples of the EXACT question style required:
+${styleConfig.examples}
+
+=== CANDIDATE CONTEXT ===
+Use the following ${documentContext.type} as context. Questions should be relevant to this person's background and experience level, but the QUESTION STYLE above takes priority over technical content.
+
+Document:
+${documentContext.text}
+
+The candidate's field is: ${subjectName}
+Difficulty level: ${difficultyDesc}
+
+Requirements:
+- ALL questions MUST match the style described above - this is the most important requirement
+- Ask about ONE specific thing per question
+- Questions should be direct and focused
+- No compound questions or multi-part questions`;
+
+        } else if (documentContext) {
+            // Document without style - default knowledge questions
+            promptContent = `Generate ${questionCount} questions specifically about: ${subjectName}
+
+IMPORTANT: All questions must be directly and specifically about "${subjectName}" - not about related topics or the general field.
+
+Difficulty: ${difficultyDesc}
 
 This is based on a ${documentContext.type}. Generate questions that test knowledge relevant to this specific document:
 
 Document excerpt:
 ${documentContext.text}
 
-Generate questions that would test someone's competency for the skills/knowledge described in this document.`;
-        }
+Requirements:
+- Each question must be answerable in ONE SENTENCE (15-30 words max answer)
+- Ask about ONE specific thing per question
+- Questions should be direct and focused
+- No compound questions or multi-part questions`;
 
-        promptContent += `
+        } else {
+            // Subject-only questions (no document)
+            promptContent = `Generate ${questionCount} questions specifically about: ${subjectName}
+
+IMPORTANT: All questions must be directly and specifically about "${subjectName}" - not about related topics or the general field.
+
+Difficulty: ${difficultyDesc}
 
 CRITICAL Requirements:
 - Each question must be answerable in ONE SENTENCE (15-30 words max answer)
@@ -169,13 +264,17 @@ CRITICAL Requirements:
 - No compound questions or multi-part questions
 
 Examples of GOOD questions (single focus):
-- "What is the purpose of the virtual keyword in C++?"
-- "What does the GROUP BY clause do in SQL?"
-- "What is the time complexity of binary search?"
+- "What year did the Berlin Wall fall?"
+- "What is the chemical symbol for gold?"
+- "Who wrote Pride and Prejudice?"
+- "What is the capital of Australia?"
 
 Examples of BAD questions (too complex):
-- "Explain the differences between abstract classes and interfaces, and when would you use each?"
-- "What are microservices, how do they communicate, and what are the pros and cons?"
+- "Explain the causes and consequences of World War I and how it led to World War II."
+- "Compare and contrast the economic policies of three different countries and their outcomes."`;
+        }
+
+        promptContent += `
 
 Return ONLY a JSON array of ${questionCount} question strings, no other text:
 ["Question 1?", "Question 2?", ...]`;
@@ -224,7 +323,7 @@ Return ONLY a JSON array of ${questionCount} question strings, no other text:
 // Evaluate answer endpoint
 app.post('/api/evaluate', async (req, res) => {
     try {
-        const { question, answer, difficulty } = req.body;
+        const { question, answer, difficulty, subject } = req.body;
 
         if (!answer || answer.trim() === '' || answer === 'Your response will appear here...') {
             return res.json({
@@ -234,15 +333,16 @@ app.post('/api/evaluate', async (req, res) => {
             });
         }
 
-        const difficultyExpectations = {
-            '1': 'This is a BEGINNER level question. Accept basic, simple answers that show fundamental understanding. Do not expect technical depth or nuance.',
-            '2': 'This is a JUNIOR level question. Accept straightforward answers that demonstrate core concepts. Some technical terminology expected but not deep expertise.',
-            '3': 'This is a MID-LEVEL question. Expect practical understanding and reasonable technical depth. Should demonstrate working knowledge.',
-            '4': 'This is a SENIOR level question. Expect comprehensive answers with good technical depth, awareness of trade-offs, and practical experience.',
-            '5': 'This is an EXPERT level question. Expect sophisticated answers demonstrating deep expertise, nuanced understanding of edge cases, and architectural insight.'
+        const difficultyTolerance = {
+            '1': 'LENIENT - Accept partial answers, rough approximations, and minor inaccuracies. Focus on whether the core idea is correct.',
+            '2': 'MODERATE - Accept reasonable answers with minor gaps. Some imprecision is acceptable.',
+            '3': 'STANDARD - Expect accurate answers but allow minor omissions. Core facts must be correct.',
+            '4': 'STRICT - Expect precise and complete answers. Minor inaccuracies reduce the score.',
+            '5': 'RIGOROUS - Expect highly precise answers with correct details. No tolerance for factual errors.'
         };
 
-        const expectation = difficultyExpectations[difficulty] || difficultyExpectations['3'];
+        const tolerance = difficultyTolerance[difficulty] || difficultyTolerance['3'];
+        const subjectContext = subject ? `Subject area: ${subject}` : '';
 
         const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-20250514',
@@ -250,27 +350,31 @@ app.post('/api/evaluate', async (req, res) => {
             messages: [
                 {
                     role: 'user',
-                    content: `You are evaluating a technical interview answer. Be fair but rigorous.
+                    content: `You are evaluating a knowledge assessment answer.
 
-${expectation}
+${subjectContext}
 
 Question: ${question}
 
 Candidate's Answer: ${answer}
 
-Evaluate the answer APPROPRIATE TO THE DIFFICULTY LEVEL and respond in this exact JSON format:
+EVALUATION RULES:
+1. First determine if the answer is FACTUALLY CORRECT for the subject area
+2. If you are uncertain about the factual accuracy, give the benefit of the doubt to the candidate
+3. Apply the following tolerance level for partial credit:
+   ${tolerance}
+
+IMPORTANT:
+- A factually correct answer should score 80+ regardless of difficulty
+- Difficulty affects how much partial credit is given for incomplete/imprecise answers
+- A factually incorrect answer should score below 50 at any difficulty level
+
+Respond in this exact JSON format:
 {
     "score": <number 0-100>,
-    "correct": <boolean>,
+    "correct": <boolean - true if the core answer is factually correct>,
     "feedback": "<brief 1-2 sentence feedback>"
 }
-
-Scoring guide (adjust expectations based on difficulty level):
-- 80-100: Correct and appropriate for the level
-- 60-79: Mostly correct, minor issues for this level
-- 40-59: Partially correct, gaps for this level
-- 20-39: Shows some understanding but insufficient for this level
-- 0-19: Incorrect or no understanding shown
 
 Only return the JSON, nothing else.`
                 }

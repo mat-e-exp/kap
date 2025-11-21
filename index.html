@@ -19,7 +19,7 @@
             <div id="setup-screen" class="screen active">
                 <div class="card">
                     <h2>Test Your Knowledge</h2>
-                    <p>Enter any subject, select a difficulty level, and answer questions while we track your confidence.</p>
+                    <p>Practice for exams, interviews, or just test your knowledge. Enter a subject, paste a document, or try a mock interview - we'll generate questions and analyse your responses.</p>
 
                     <div class="input-tabs">
                         <button type="button" class="tab-btn active" data-tab="subject">Subject</button>
@@ -51,6 +51,17 @@
                                 <span id="detected-type" class="detected-type"></span>
                             </div>
                             <p id="analysis-context" class="analysis-context"></p>
+                            <div id="question-style-selection" class="question-style-selection hidden">
+                                <label for="question-style">Question Style</label>
+                                <select id="question-style">
+                                    <option value="mixed">Mixed (All Types)</option>
+                                    <option value="technical">Technical Knowledge</option>
+                                    <option value="behavioural">Behavioural (STAR Method)</option>
+                                    <option value="situational">Situational Judgement</option>
+                                    <option value="management">Management & Leadership</option>
+                                    <option value="competency">Competency-Based</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -75,6 +86,20 @@
                             <option value="15">15</option>
                             <option value="20">20</option>
                         </select>
+                    </div>
+
+                    <div class="option-checkbox">
+                        <label>
+                            <input type="checkbox" id="read-aloud" checked>
+                            Read questions aloud
+                        </label>
+                    </div>
+
+                    <div class="option-checkbox">
+                        <label>
+                            <input type="checkbox" id="record-session">
+                            Record session for playback
+                        </label>
                     </div>
 
                     <div class="requirements">
@@ -166,6 +191,17 @@
                     <div class="verdict" id="verdict">
                         <div class="verdict-score" id="verdict-score">0%</div>
                         <div class="verdict-label" id="verdict-label">Overall Score</div>
+                    </div>
+                    <div class="session-recording">
+                        <h3>Session Recording</h3>
+                        <div class="recording-player">
+                            <video id="session-video"></video>
+                            <audio id="session-audio" style="display: none;"></audio>
+                            <div class="recording-controls">
+                                <button id="play-recording" class="btn-secondary">Play</button>
+                                <span id="recording-time">0:00</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="breakdown">
                         <h3>Session Breakdown</h3>

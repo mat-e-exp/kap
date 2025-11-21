@@ -52,6 +52,11 @@ class SentimentAnalyser {
         this.questionStartTime = null;
         this.timerInterval = null;
 
+        // Recording
+        this.sessionRecording = null;
+        this.mediaRecorder = null;
+        this.recordingChunks = [];
+
         // Landmark indices for MediaPipe
         this.LANDMARKS = {
             leftEye: [33, 160, 158, 133, 153, 144],
@@ -98,6 +103,9 @@ class SentimentAnalyser {
     }
 
     resetAnswer() {
+        // Stop any ongoing speech
+        this.stopSpeaking();
+
         this.fullTranscript = '';
         this.transcript.textContent = 'Your response will appear here...';
         this.transcript.classList.add('placeholder');
@@ -105,6 +113,7 @@ class SentimentAnalyser {
         this.blinkCount = 0;
 
         // Restart listening
+        this.listeningIndicator.querySelector('span').textContent = 'Listening...';
         this.startListening();
     }
 
@@ -163,6 +172,16 @@ class SentimentAnalyser {
             analysisContext.textContent = data.context;
             analysisDiv.classList.remove('hidden');
 
+            // Show question style selector for CV or Job Description
+            const questionStyleDiv = document.getElementById('question-style-selection');
+            const typeLC = data.type.toLowerCase();
+            if (typeLC.includes('cv') || typeLC.includes('resume') ||
+                typeLC.includes('job') || typeLC.includes('description')) {
+                questionStyleDiv.classList.remove('hidden');
+            } else {
+                questionStyleDiv.classList.add('hidden');
+            }
+
         } catch (error) {
             console.error('Error analyzing document:', error);
             alert('Failed to analyze document');
@@ -197,9 +216,12 @@ class SentimentAnalyser {
             const data = await response.json();
 
             if (data.suggestions && data.suggestions.length > 0) {
-                suggestionsList.innerHTML = data.suggestions.map(s =>
+                // Add the original subject as the first option (highlighted green)
+                const originalSubjectChip = `<button type="button" class="suggestion-chip suggestion-chip-original">${subject}</button>`;
+                const topicChips = data.suggestions.map(s =>
                     `<button type="button" class="suggestion-chip">${s}</button>`
                 ).join('');
+                suggestionsList.innerHTML = originalSubjectChip + topicChips;
 
                 // Add click handlers to chips
                 suggestionsList.querySelectorAll('.suggestion-chip').forEach(chip => {
@@ -307,6 +329,12 @@ class SentimentAnalyser {
                     type: this.documentContext.type,
                     text: this.documentContext.text.substring(0, 3000)
                 };
+
+                // Add question style if CV/Job Description
+                const questionStyleSelect = document.getElementById('question-style');
+                if (questionStyleSelect && !questionStyleSelect.parentElement.classList.contains('hidden')) {
+                    requestBody.questionStyle = questionStyleSelect.value;
+                }
             }
 
             const questionsResponse = await fetch('/api/generate-questions', {
@@ -337,6 +365,12 @@ class SentimentAnalyser {
 
             this.setupSpeechRecognition();
             this.showScreen('analysis');
+
+            // Start session recording if enabled
+            this.recordingEnabled = document.getElementById('record-session').checked;
+            if (this.recordingEnabled) {
+                this.startRecording();
+            }
 
             this.video.addEventListener('loadeddata', () => {
                 this.startCombinedDetection();
@@ -722,7 +756,149 @@ class SentimentAnalyser {
         this.questionStartTime = Date.now();
         this.startTimer();
 
-        setTimeout(() => this.startListening(), 500);
+        // Read question aloud, then start listening
+        this.speakQuestion(this.questions[this.currentQuestion]);
+    }
+
+    speakQuestion(text) {
+        // Cancel any ongoing speech
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+
+        // Check if TTS is enabled via checkbox
+        const readAloudEnabled = document.getElementById('read-aloud')?.checked ?? true;
+
+        // Skip TTS if disabled or not supported
+        if (!readAloudEnabled || !window.speechSynthesis) {
+            // Start listening after short delay
+            this.listeningIndicator.classList.remove('hidden');
+            this.listeningIndicator.querySelector('span').textContent = 'Listening...';
+            setTimeout(() => this.startListening(), 500);
+            return;
+        }
+
+        // Show reading indicator
+        this.listeningIndicator.classList.remove('hidden');
+        this.listeningIndicator.querySelector('span').textContent = 'Reading question...';
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.95;  // Slightly slower for clarity
+        utterance.pitch = 1;
+
+        // Try to select a good voice (prefer UK English)
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang === 'en-GB') ||
+                               voices.find(v => v.lang.startsWith('en')) ||
+                               voices[0];
+        if (preferredVoice) {
+            utterance.voice = preferredVoice;
+        }
+
+        utterance.onend = () => {
+            // TTS finished, now start listening
+            this.listeningIndicator.querySelector('span').textContent = 'Listening...';
+            this.startListening();
+        };
+
+        utterance.onerror = () => {
+            // TTS failed, fallback to listening
+            this.listeningIndicator.querySelector('span').textContent = 'Listening...';
+            this.startListening();
+        };
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    stopSpeaking() {
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+    }
+
+    startRecording() {
+        if (!this.stream) return;
+
+        this.videoChunks = [];
+        this.audioChunks = [];
+
+        try {
+            // Record video and audio SEPARATELY to avoid clock drift during muxing
+
+            // Video-only stream from the camera
+            const videoOnlyStream = new MediaStream(this.stream.getVideoTracks());
+            this.videoRecorder = new MediaRecorder(videoOnlyStream, {
+                mimeType: 'video/webm',
+                videoBitsPerSecond: 2500000
+            });
+            this.videoRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    this.videoChunks.push(e.data);
+                }
+            };
+
+            // Audio-only stream from the microphone
+            const audioOnlyStream = new MediaStream(this.stream.getAudioTracks());
+            this.audioRecorder = new MediaRecorder(audioOnlyStream, {
+                mimeType: 'audio/webm'
+            });
+            this.audioRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    this.audioChunks.push(e.data);
+                }
+            };
+
+            // Start both recorders simultaneously
+            this.videoRecorder.start();
+            this.audioRecorder.start();
+        } catch (err) {
+            console.error('Recording not supported:', err);
+        }
+    }
+
+    stopRecording() {
+        return new Promise((resolve) => {
+            // Check if we have active recorders
+            const videoActive = this.videoRecorder && this.videoRecorder.state !== 'inactive';
+            const audioActive = this.audioRecorder && this.audioRecorder.state !== 'inactive';
+
+            if (!videoActive && !audioActive) {
+                resolve(null);
+                return;
+            }
+
+            let videoUrl = null;
+            let audioUrl = null;
+            let stoppedCount = 0;
+            const checkComplete = () => {
+                stoppedCount++;
+                if (stoppedCount >= 2) {
+                    resolve({ videoUrl, audioUrl });
+                }
+            };
+
+            if (videoActive) {
+                this.videoRecorder.onstop = () => {
+                    const blob = new Blob(this.videoChunks, { type: 'video/webm' });
+                    videoUrl = URL.createObjectURL(blob);
+                    checkComplete();
+                };
+                this.videoRecorder.stop();
+            } else {
+                checkComplete();
+            }
+
+            if (audioActive) {
+                this.audioRecorder.onstop = () => {
+                    const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                    audioUrl = URL.createObjectURL(blob);
+                    checkComplete();
+                };
+                this.audioRecorder.stop();
+            } else {
+                checkComplete();
+            }
+        });
     }
 
     startTimer() {
@@ -747,6 +923,9 @@ class SentimentAnalyser {
     }
 
     nextQuestion() {
+        // Stop any ongoing speech
+        this.stopSpeaking();
+
         const timeElapsed = this.stopTimer();
         const avgMetrics = this.calculateAverageMetrics();
         const userResponse = this.fullTranscript.trim() || 'No response provided';
@@ -792,6 +971,11 @@ class SentimentAnalyser {
     }
 
     async evaluateAllAnswers() {
+        // Stop session recording before stopping camera (if enabled)
+        if (this.recordingEnabled) {
+            this.sessionRecording = await this.stopRecording();
+        }
+
         // Stop camera
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
@@ -819,7 +1003,8 @@ class SentimentAnalyser {
                     body: JSON.stringify({
                         question: this.results[i].question,
                         answer: this.results[i].response,
-                        difficulty: this.selectedDifficulty
+                        difficulty: this.selectedDifficulty,
+                        subject: this.selectedSubject
                     })
                 });
 
@@ -889,7 +1074,6 @@ class SentimentAnalyser {
             const correctIcon = r.correct ? '✓' : '✗';
             const correctClass = r.correct ? 'correct' : 'incorrect';
             const s = r.sentiment;
-
             return `
                 <div class="breakdown-item">
                     <div class="breakdown-main">
@@ -936,15 +1120,88 @@ class SentimentAnalyser {
                             <span class="sentiment-label">WPM</span>
                             <span class="sentiment-value">${r.speech.wpm}</span>
                         </div>
-                        <div class="sentiment-item">
-                            <span class="sentiment-label">Fillers</span>
-                            <span class="sentiment-value">${r.speech.fillerCount}</span>
-                        </div>
                         <div class="speech-summary">${r.speech.summary}</div>
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Set session recording video/audio if available
+        const sessionRecordingDiv = document.querySelector('.session-recording');
+        const sessionVideo = document.getElementById('session-video');
+        const sessionAudio = document.getElementById('session-audio');
+        const playBtn = document.getElementById('play-recording');
+        const recordingTime = document.getElementById('recording-time');
+
+        if (this.sessionRecording && this.sessionRecording.videoUrl) {
+            sessionVideo.src = this.sessionRecording.videoUrl;
+            sessionAudio.src = this.sessionRecording.audioUrl;
+            sessionRecordingDiv.style.display = 'block';
+
+            // Sync playback controls
+            let isPlaying = false;
+            let timeUpdateInterval = null;
+
+            // Wait for metadata to load, then log durations for investigation
+            let videoDuration = 0;
+            let audioDuration = 0;
+
+            sessionVideo.onloadedmetadata = () => {
+                videoDuration = sessionVideo.duration;
+                console.log('VIDEO duration:', videoDuration, 'seconds');
+                console.log('VIDEO playbackRate:', sessionVideo.playbackRate);
+                if (audioDuration > 0) {
+                    console.log('RATIO (audio/video):', audioDuration / videoDuration);
+                }
+            };
+
+            sessionAudio.onloadedmetadata = () => {
+                audioDuration = sessionAudio.duration;
+                console.log('AUDIO duration:', audioDuration, 'seconds');
+                if (videoDuration > 0) {
+                    console.log('RATIO (audio/video):', audioDuration / videoDuration);
+                }
+            };
+
+            playBtn.onclick = () => {
+                if (isPlaying) {
+                    sessionVideo.pause();
+                    sessionAudio.pause();
+                    playBtn.textContent = 'Play';
+                    if (timeUpdateInterval) clearInterval(timeUpdateInterval);
+                } else {
+                    // Start video immediately, delay audio start
+                    sessionVideo.currentTime = 0;
+                    sessionAudio.currentTime = 0;
+                    sessionVideo.play();
+                    setTimeout(() => {
+                        if (!sessionVideo.paused) {
+                            sessionAudio.play();
+                        }
+                    }, AUDIO_DELAY * 1000);
+                    playBtn.textContent = 'Pause';
+
+                    // Update time display
+                    timeUpdateInterval = setInterval(() => {
+                        const time = Math.floor(sessionVideo.currentTime);
+                        const mins = Math.floor(time / 60);
+                        const secs = time % 60;
+                        recordingTime.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                    }, 500);
+                }
+                isPlaying = !isPlaying;
+            };
+
+            // When video ends, stop audio too
+            sessionVideo.onended = () => {
+                sessionAudio.pause();
+                playBtn.textContent = 'Play';
+                isPlaying = false;
+                if (timeUpdateInterval) clearInterval(timeUpdateInterval);
+            };
+        } else {
+            sessionRecordingDiv.style.display = 'none';
+        }
 
         this.showScreen('results');
     }
@@ -956,6 +1213,7 @@ class SentimentAnalyser {
         this.metricsHistory = [];
         this.baselineMetrics = null;
         this.blinkCount = 0;
+        this.sessionRecording = null;
 
         // Reset tab state and document context
         this.activeTab = 'subject';
@@ -968,6 +1226,8 @@ class SentimentAnalyser {
         document.getElementById('subject-tab').classList.add('active');
         document.getElementById('document-tab').classList.remove('active');
         document.getElementById('document-analysis').classList.add('hidden');
+        document.getElementById('question-style-selection').classList.add('hidden');
+        document.getElementById('question-style').value = 'mixed';
 
         this.cameraStatus.classList.remove('granted', 'denied');
         this.micStatus.classList.remove('granted', 'denied');
@@ -1016,21 +1276,14 @@ class SentimentAnalyser {
         const seconds = timeMs / 1000;
         const wpm = seconds > 0 ? Math.round((wordCount / seconds) * 60) : 0;
 
-        // Count filler words
-        const fillerPattern = /\b(um|uh|er|ah|like|you know|basically|actually|so|well)\b/gi;
-        const fillers = transcript.match(fillerPattern) || [];
-        const fillerCount = fillers.length;
-
         // Generate summary
         const lengthDesc = wordCount < 10 ? 'Brief' : wordCount < 30 ? 'Moderate' : 'Detailed';
         const paceDesc = wpm < 100 ? 'slow pace' : wpm < 150 ? 'steady pace' : 'fast pace';
-        const fillerDesc = fillerCount === 0 ? 'no fillers' : fillerCount <= 2 ? 'few fillers' : 'frequent fillers';
-        const summary = `${lengthDesc}, ${paceDesc}, ${fillerDesc}`;
+        const summary = `${lengthDesc}, ${paceDesc}`;
 
         return {
             wordCount,
             wpm,
-            fillerCount,
             summary
         };
     }
