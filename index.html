@@ -102,6 +102,13 @@
                         </label>
                     </div>
 
+                    <div class="option-checkbox">
+                        <label>
+                            <input type="checkbox" id="enable-suggestions">
+                            Enable answer suggestions
+                        </label>
+                    </div>
+
                     <div class="requirements">
                         <div class="requirement" id="camera-status">
                             <span class="icon">📷</span>
@@ -143,6 +150,14 @@
                                 <span>Listening...</span>
                             </div>
                             <p id="transcript" class="transcript">Your response will appear here...</p>
+
+                            <div id="suggestion-container" class="suggestion-container hidden">
+                                <button id="suggest-answer-btn" class="suggest-btn">Suggest an Answer</button>
+                                <div id="suggested-answer" class="suggested-answer hidden">
+                                    <div class="suggestion-label">Suggested Answer:</div>
+                                    <div id="suggestion-text"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="metrics">

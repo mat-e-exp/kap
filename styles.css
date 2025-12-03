@@ -859,3 +859,70 @@ header h1 {
     color: var(--gray-600);
 }
 
+/* Answer Suggestions */
+.suggestion-container {
+    margin-top: 1rem;
+}
+
+.suggestion-container.hidden {
+    display: none;
+}
+
+.suggest-btn {
+    padding: 0.5rem 1rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.suggest-btn:hover {
+    background: var(--primary-dark);
+}
+
+.suggest-btn:disabled {
+    background: var(--gray-300);
+    cursor: not-allowed;
+}
+
+.suggested-answer {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f0f8ff;
+    border-left: 4px solid var(--primary);
+    border-radius: 6px;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.suggested-answer.hidden {
+    display: none;
+}
+
+.suggestion-label {
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+#suggestion-text {
+    color: var(--gray-700);
+    line-height: 1.6;
+    font-size: 0.9rem;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+

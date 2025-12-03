@@ -57,6 +57,10 @@ class SentimentAnalyser {
         this.mediaRecorder = null;
         this.recordingChunks = [];
 
+        // Answer suggestions
+        this.suggestionsEnabled = false;
+        this.selectedQuestionStyle = null;
+
         // Landmark indices for MediaPipe
         this.LANDMARKS = {
             leftEye: [33, 160, 158, 133, 153, 144],
@@ -92,6 +96,12 @@ class SentimentAnalyser {
         const analyzeBtn = document.getElementById('analyze-btn');
         if (analyzeBtn) {
             analyzeBtn.addEventListener('click', () => this.analyzeDocument());
+        }
+
+        // Answer suggestion button
+        const suggestAnswerBtn = document.getElementById('suggest-answer-btn');
+        if (suggestAnswerBtn) {
+            suggestAnswerBtn.addEventListener('click', () => this.suggestAnswer());
         }
 
         // Disable button while loading
@@ -334,8 +344,12 @@ class SentimentAnalyser {
                 const questionStyleSelect = document.getElementById('question-style');
                 if (questionStyleSelect && !questionStyleSelect.parentElement.classList.contains('hidden')) {
                     requestBody.questionStyle = questionStyleSelect.value;
+                    this.selectedQuestionStyle = questionStyleSelect.value;
                 }
             }
+
+            // Check if answer suggestions are enabled
+            this.suggestionsEnabled = document.getElementById('enable-suggestions').checked;
 
             const questionsResponse = await fetch('/api/generate-questions', {
                 method: 'POST',
@@ -752,6 +766,18 @@ class SentimentAnalyser {
         this.blinkCount = 0;
         this.fullTranscript = '';  // Reset accumulated transcript
 
+        // Show/hide suggestion container based on enabled state
+        const suggestionContainer = document.getElementById('suggestion-container');
+        const suggestedAnswer = document.getElementById('suggested-answer');
+        if (this.suggestionsEnabled) {
+            suggestionContainer.classList.remove('hidden');
+        } else {
+            suggestionContainer.classList.add('hidden');
+        }
+        // Clear previous suggestion
+        suggestedAnswer.classList.add('hidden');
+        document.getElementById('suggestion-text').textContent = '';
+
         // Start timer
         this.questionStartTime = Date.now();
         this.startTimer();
@@ -814,6 +840,40 @@ class SentimentAnalyser {
         if (window.speechSynthesis) {
             window.speechSynthesis.cancel();
         }
+    }
+
+    async suggestAnswer() {
+        const suggestBtn = document.getElementById('suggest-answer-btn');
+        const suggestedAnswerDiv = document.getElementById('suggested-answer');
+        const suggestionText = document.getElementById('suggestion-text');
+
+        // Disable button and show loading
+        suggestBtn.disabled = true;
+        suggestBtn.textContent = 'Generating...';
+
+        try {
+            const response = await fetch('/api/suggest-answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: this.questions[this.currentQuestion],
+                    difficulty: this.selectedDifficulty,
+                    subject: this.selectedSubject,
+                    questionStyle: this.selectedQuestionStyle
+                })
+            });
+
+            const data = await response.json();
+
+            suggestionText.textContent = data.suggestion;
+            suggestedAnswerDiv.classList.remove('hidden');
+        } catch (error) {
+            console.error('Error getting suggestion:', error);
+            alert('Failed to generate suggestion');
+        }
+
+        suggestBtn.disabled = false;
+        suggestBtn.textContent = 'Suggest an Answer';
     }
 
     startRecording() {

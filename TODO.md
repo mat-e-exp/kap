@@ -20,6 +20,21 @@
 
 ## Medium Priority
 
+### API Cost Optimization
+- **Current cost**: ~$0.03 per 10-question session (~3k input tokens, ~1.5k output tokens)
+- **Optimization 1 - Prompt Caching** (up to 90% savings):
+  - Cache evaluation rules and difficulty descriptions
+  - Could reduce evaluation costs to ~$0.002 per question
+  - Anthropic Prompt Caching: cached tokens cost 0.1x base price
+- **Optimization 2 - Batch API** (50% discount):
+  - Process all evaluations as a batch instead of individual calls
+  - Would reduce session cost from $0.032 to ~$0.016
+  - Trade-off: Async processing adds latency
+- **Optimization 3 - Model Selection**:
+  - Use Claude Haiku for topic suggestions (20x cheaper)
+  - Keep Sonnet 4 only for question generation and evaluation
+- **Impact**: Heavy usage (500 sessions/month) would drop from $16 to ~$3-5/month
+
 ### Sentiment Analysis Calibration
 - Current facial/behavioral confidence scoring is generic
 - Per-user baseline calibration would improve accuracy

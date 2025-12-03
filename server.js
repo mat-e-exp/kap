@@ -216,7 +216,7 @@ Examples of the EXACT question style required:
 ${styleConfig.examples}
 
 === CANDIDATE CONTEXT ===
-Use the following ${documentContext.type} as context. Questions should be relevant to this person's background and experience level, but the QUESTION STYLE above takes priority over technical content.
+Use the following ${documentContext.type} as context:
 
 Document:
 ${documentContext.text}
@@ -225,10 +225,21 @@ The candidate's field is: ${subjectName}
 Difficulty level: ${difficultyDesc}
 
 Requirements:
-- ALL questions MUST match the style described above - this is the most important requirement
+- ALL questions MUST match the style described above
+- CRITICAL: Each question MUST reference a SPECIFIC skill, technology, experience, or requirement mentioned in the document above
+- Do NOT ask generic questions - every question should be tailored to THIS specific document
 - Ask about ONE specific thing per question
 - Questions should be direct and focused
-- No compound questions or multi-part questions`;
+- No compound questions or multi-part questions
+
+Examples of what to do:
+- If CV mentions "5 years React experience" → ask specifically about React
+- If JD requires "team leadership" → ask about their leadership experience
+- If CV lists "AWS certification" → ask about AWS
+
+Examples of what NOT to do:
+- Generic questions like "Tell me about a challenge you faced" without linking to document content
+- Questions about skills/technologies not mentioned in the document`;
 
         } else if (documentContext) {
             // Document without style - default knowledge questions
@@ -274,7 +285,21 @@ Examples of BAD questions (too complex):
 - "Compare and contrast the economic policies of three different countries and their outcomes."`;
         }
 
+        // Add random variation to explore different aspects
+        const variationPrompts = [
+            'Focus on advanced technical depth and expert-level nuances.',
+            'Prioritize practical real-world challenges and implementation experience.',
+            'Explore edge cases, troubleshooting scenarios, and problem-solving.',
+            'Focus on architectural decisions, design patterns, and trade-offs.',
+            'Ask about team collaboration, code review practices, and knowledge sharing.',
+            'Emphasize performance optimization, scalability, and best practices.',
+            'Focus on less obvious aspects and secondary skills mentioned in the document.'
+        ];
+        const randomVariation = variationPrompts[Math.floor(Math.random() * variationPrompts.length)];
+
         promptContent += `
+
+VARIATION GUIDANCE: ${randomVariation}
 
 Return ONLY a JSON array of ${questionCount} question strings, no other text:
 ["Question 1?", "Question 2?", ...]`;
@@ -282,6 +307,7 @@ Return ONLY a JSON array of ${questionCount} question strings, no other text:
         const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-20250514',
             max_tokens: questionCount > 10 ? 1500 : 800,
+            temperature: 1.0,
             messages: [
                 {
                     role: 'user',
@@ -405,6 +431,58 @@ Only return the JSON, nothing else.`
             feedback: 'Could not evaluate answer',
             correct: false
         });
+    }
+});
+
+// Suggest answer endpoint
+app.post('/api/suggest-answer', async (req, res) => {
+    try {
+        const { question, difficulty, subject, questionStyle } = req.body;
+
+        if (!question) {
+            return res.status(400).json({ suggestion: 'No question provided' });
+        }
+
+        const difficultyLabels = {
+            '1': 'beginner',
+            '2': 'intermediate',
+            '3': 'competent',
+            '4': 'advanced',
+            '5': 'expert'
+        };
+
+        const difficultyLevel = difficultyLabels[difficulty] || 'competent';
+        const styleContext = questionStyle ? ` (${questionStyle} style)` : '';
+
+        const response = await anthropic.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 300,
+            temperature: 0.8,
+            messages: [
+                {
+                    role: 'user',
+                    content: `Provide a strong example answer to this interview question${styleContext}.
+
+Question: ${question}
+
+Subject area: ${subject || 'general'}
+Difficulty level: ${difficultyLevel}
+
+Provide a concise, high-quality example answer that would score 80-90%.
+Keep it natural and conversational, not robotic.
+For technical questions: 1-2 sentences covering key points.
+For behavioural/situational questions: 2-4 sentences, use STAR method if applicable (Situation, Task, Action, Result).
+
+Return ONLY the example answer text, no labels, quotes, or extra formatting.`
+                }
+            ]
+        });
+
+        const suggestion = response.content[0].text.trim();
+        res.json({ suggestion });
+    } catch (error) {
+        console.error('Suggestion error:', error);
+        res.status(500).json({ suggestion: 'Could not generate suggestion' });
     }
 });
 
